@@ -31,7 +31,7 @@ export default function AppNav({ user }: Props) {
         <div className="flex items-center gap-8">
           <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-default">
             <Sparkles className="h-6 w-6 text-brand" />
-            TeamTasks
+            ProjectPulse
           </Link>
           <nav className="flex items-center gap-1">
             {links.map(({ href, label, icon: Icon }) => {

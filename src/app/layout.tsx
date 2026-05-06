@@ -4,7 +4,7 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 
 export const metadata: Metadata = {
-  title: "Team Task Manager",
+  title: "ProjectPulse",
   description: "Collaborate on projects and tasks with your team",
 };
 

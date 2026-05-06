@@ -13,7 +13,7 @@ export default async function Home() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2 text-lg font-semibold text-default">
             <Sparkles className="h-6 w-6 text-brand" />
-            TeamTasks
+            ProjectPulse
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="btn-ghost">
