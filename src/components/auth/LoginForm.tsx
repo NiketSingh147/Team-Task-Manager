@@ -44,7 +44,7 @@ export default function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="input mt-1"
-          placeholder="you@example.com"
+          placeholder="Enter your email"
         />
       </div>
       <div>

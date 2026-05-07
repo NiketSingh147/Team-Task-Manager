@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { Upload, X } from "lucide-react";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
 
 type Task = {
@@ -21,10 +21,17 @@ type Member = {
   user: { id: string; name: string; email: string };
 };
 
+type TaskOption = {
+  id: string;
+  title: string;
+  status: "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
+};
+
 export default function TaskFormModal({
   projectId,
   members,
   owner,
+  allTasks,
   task,
   defaultStatus,
   onClose,
@@ -32,6 +39,7 @@ export default function TaskFormModal({
   projectId: string;
   members: Member[];
   owner: { id: string; name: string; email: string };
+  allTasks: TaskOption[];
   task?: Task;
   defaultStatus?: Task["status"];
   onClose: () => void;
@@ -45,8 +53,18 @@ export default function TaskFormModal({
   const [priority, setPriority] = useState<Task["priority"]>(task?.priority ?? "MEDIUM");
   const [dueDate, setDueDate] = useState(task?.dueDate ? task.dueDate.slice(0, 10) : "");
   const [assigneeId, setAssigneeId] = useState(task?.assigneeId ?? "");
+  const [selectedBlockerTaskId, setSelectedBlockerTaskId] = useState("");
+  const [blockerTaskIds, setBlockerTaskIds] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const totalSizeLabel = useMemo(() => {
+    const bytes = files.reduce((sum, f) => sum + f.size, 0);
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }, [files]);
 
   const assignableUsers = [
     { id: owner.id, name: owner.name, email: owner.email },
@@ -54,6 +72,34 @@ export default function TaskFormModal({
       .filter((m) => m.user.id !== owner.id)
       .map((m) => ({ id: m.user.id, name: m.user.name, email: m.user.email })),
   ];
+  const blockerOptions = useMemo(
+    () => allTasks.filter((t) => t.id !== task?.id && !blockerTaskIds.includes(t.id)),
+    [allTasks, task?.id, blockerTaskIds]
+  );
+
+  function addBlocker() {
+    if (!selectedBlockerTaskId) return;
+    setBlockerTaskIds((prev) => (prev.includes(selectedBlockerTaskId) ? prev : [...prev, selectedBlockerTaskId]));
+    setSelectedBlockerTaskId("");
+  }
+
+  function removeBlocker(taskId: string) {
+    setBlockerTaskIds((prev) => prev.filter((id) => id !== taskId));
+  }
+
+  function addFiles(next: File[]) {
+    if (next.length === 0) return;
+    setFiles((prev) => {
+      const merged = [...prev, ...next];
+      const dedup = new Map<string, File>();
+      for (const f of merged) dedup.set(`${f.name}-${f.size}-${f.lastModified}`, f);
+      return [...dedup.values()];
+    });
+  }
+
+  function removeFile(idx: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,6 +126,35 @@ export default function TaskFormModal({
         setError(data.error || "Failed to save task");
         return;
       }
+      const taskId: string | undefined = data?.task?.id;
+      if (taskId && files.length > 0) {
+        const form = new FormData();
+        for (const file of files) form.append("files", file);
+        const uploadRes = await fetch(`/api/tasks/${taskId}/attachments`, {
+          method: "POST",
+          body: form,
+        });
+        if (!uploadRes.ok) {
+          const d = await uploadRes.json().catch(() => ({}));
+          setError(d.error || "Task saved but file upload failed");
+          return;
+        }
+      }
+      if (!isEdit && taskId && blockerTaskIds.length > 0) {
+        for (const blockerTaskId of blockerTaskIds) {
+          const depRes = await fetch(`/api/tasks/${taskId}/dependencies`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ blockerTaskId }),
+          });
+          if (!depRes.ok) {
+            const d = await depRes.json().catch(() => ({}));
+            setError(d.error || "Task saved but dependency setup failed");
+            return;
+          }
+        }
+      }
+
       onClose();
       router.refresh();
     } catch {
@@ -172,6 +247,107 @@ export default function TaskFormModal({
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+          {!isEdit && (
+            <div>
+              <label className="block text-sm font-medium text-muted">Blockers (Dependencies)</label>
+              <div className="mt-1 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--surface))] p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <select
+                    value={selectedBlockerTaskId}
+                    onChange={(e) => setSelectedBlockerTaskId(e.target.value)}
+                    className="input min-w-0 flex-1"
+                  >
+                    <option value="">Select blocker task</option>
+                    {blockerOptions.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.title} ({t.status})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={addBlocker}
+                    disabled={!selectedBlockerTaskId}
+                    className="btn-outline px-3 py-1 text-xs disabled:opacity-60"
+                  >
+                    Add blocker
+                  </button>
+                </div>
+                {blockerTaskIds.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {blockerTaskIds.map((id) => {
+                      const blocker = allTasks.find((t) => t.id === id);
+                      if (!blocker) return null;
+                      return (
+                        <div key={id} className="flex items-center justify-between rounded-md border border-[hsl(var(--border))] px-2 py-1.5 text-xs">
+                          <span className="truncate text-default">{blocker.title}</span>
+                          <button type="button" onClick={() => removeBlocker(id)} className="text-red-400 hover:underline">
+                            Remove
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-muted">Attachments</label>
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                addFiles(Array.from(e.dataTransfer.files || []));
+              }}
+              className={`mt-1 rounded-lg border border-dashed p-4 text-sm ${
+                dragOver
+                  ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary-soft)/0.25)]"
+                  : "border-[hsl(var(--border))] bg-[hsl(var(--surface))]"
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => addFiles(Array.from(e.target.files || []))}
+              />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-muted">
+                  <Upload className="h-4 w-4" />
+                  <span>Drag & drop files here</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn-outline px-3 py-1 text-xs"
+                >
+                  Upload from device
+                </button>
+              </div>
+              {files.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-dim">
+                    {files.length} file(s) selected • {totalSizeLabel}
+                  </p>
+                  {files.map((file, idx) => (
+                    <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between rounded-md border border-[hsl(var(--border))] px-2 py-1.5 text-xs">
+                      <span className="truncate text-default">{file.name}</span>
+                      <button type="button" onClick={() => removeFile(idx)} className="text-red-400 hover:underline">
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}

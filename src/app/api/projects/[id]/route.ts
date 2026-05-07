@@ -31,6 +31,16 @@ export async function GET(
           include: {
             assignee: { select: { id: true, name: true, email: true } },
             createdBy: { select: { id: true, name: true, email: true } },
+            attachments: {
+              select: { id: true, originalName: true, mimeType: true, sizeBytes: true, createdAt: true },
+              orderBy: { createdAt: "desc" },
+            },
+            blockedBy: {
+              include: { blockerTask: { select: { id: true, title: true, status: true } } },
+            },
+            blocking: {
+              include: { blockedTask: { select: { id: true, title: true, status: true } } },
+            },
           },
           orderBy: { createdAt: "desc" },
         },
@@ -82,3 +92,4 @@ export async function DELETE(
     return handleError(e);
   }
 }
+

@@ -27,6 +27,16 @@ export default async function ProjectPage({
           include: {
             assignee: { select: { id: true, name: true, email: true } },
             createdBy: { select: { id: true, name: true, email: true } },
+            attachments: {
+              select: { id: true, originalName: true, mimeType: true, sizeBytes: true, createdAt: true },
+              orderBy: { createdAt: "desc" },
+            },
+            blockedBy: {
+              include: { blockerTask: { select: { id: true, title: true, status: true } } },
+            },
+            blocking: {
+              include: { blockedTask: { select: { id: true, title: true, status: true } } },
+            },
           },
           orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
         },
@@ -55,3 +65,4 @@ export default async function ProjectPage({
     );
   }
 }
+

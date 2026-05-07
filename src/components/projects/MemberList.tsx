@@ -56,12 +56,26 @@ export default function MemberList({
   }
 
   async function updateRole(memberId: string, newRole: "ADMIN" | "MEMBER") {
-    const res = await fetch(`/api/projects/${projectId}/members/${memberId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: newRole }),
-    });
-    if (res.ok) router.refresh();
+    if (!isAdmin) {
+      show({ kind: "error", message: "Only project admins can change roles" });
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/members/${memberId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (res.ok) {
+        router.refresh();
+        return;
+      }
+      const d = await res.json().catch(() => ({}));
+      show({ kind: "error", message: d.error || "Failed to update role" });
+    } catch {
+      show({ kind: "error", message: "Network error while updating role" });
+    }
   }
 
   async function removeMember(m: Member) {

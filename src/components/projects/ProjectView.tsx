@@ -27,6 +27,24 @@ type Task = {
   createdBy: { id: string; name: string; email: string };
   createdById: string;
   assigneeId: string | null;
+  attachments: {
+    id: string;
+    originalName: string;
+    mimeType: string;
+    sizeBytes: number;
+    createdAt: string;
+  }[];
+  blockedBy?: { blockerTask: { id: string; title: string; status: "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE" } }[];
+  blocking?: { blockedTask: { id: string; title: string; status: "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE" } }[];
+  activities?: {
+    id: string;
+    type: string;
+    message: string;
+    oldValue: string | null;
+    newValue: string | null;
+    createdAt: string;
+    actorUser: { id: string; name: string; email: string } | null;
+  }[];
 };
 
 type Project = {
@@ -55,7 +73,7 @@ export default function ProjectView({
   const [modal, setModal] = useState<{
     open: boolean;
     defaultStatus?: Task["status"];
-    task?: Task;
+    task?: any;
   }>({ open: false });
   const [filter, setFilter] = useState<Filter>("all");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -175,6 +193,7 @@ export default function ProjectView({
           projectId={project.id}
           members={project.members}
           owner={project.owner}
+          allTasks={project.tasks}
           task={modal.task}
           defaultStatus={modal.defaultStatus}
           onClose={() => setModal({ open: false })}

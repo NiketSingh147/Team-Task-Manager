@@ -45,7 +45,7 @@ export default function SignupForm() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="input mt-1"
-          placeholder="Jane Doe"
+          placeholder="Enter your full name"
         />
       </div>
       <div>
@@ -56,7 +56,7 @@ export default function SignupForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="input mt-1"
-          placeholder="you@example.com"
+          placeholder="Enter your email"
         />
       </div>
       <div>

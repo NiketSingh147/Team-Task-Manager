@@ -13,7 +13,7 @@ export default async function SignupPage() {
       <div className="mx-auto max-w-md px-6 py-16">
         <Link href="/" className="mb-8 flex items-center justify-center gap-2 text-lg font-semibold text-default">
           <Sparkles className="h-6 w-6 text-brand" />
-          ProjectPulse
+          TeamTasks
         </Link>
         <div className="card p-8">
           <h1 className="text-2xl font-semibold text-default">Create your account</h1>
@@ -32,3 +32,4 @@ export default async function SignupPage() {
     </main>
   );
 }
+
